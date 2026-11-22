@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Arena Chat - Prepend Chat Title to Tab Title
 // @namespace    https://github.com/endolith/Arena-Chat-Tab-Title
-// @version      1.1.0
+// @version      1.1.1
 // @description  Prepends the active conversation title to the browser tab title on arena.ai (e.g. "Chat Title - Arena")
 // @author       endolith
 // @match        https://arena.ai/*
@@ -29,6 +29,8 @@
   let timer;
   let scanKey = null;
   let attemptedKey = null;
+  let retryAt = 0;
+  let attempts = 0;
 
   function routeKey(url) {
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -52,9 +54,6 @@
     // This avoids relying on the long, position-dependent Inspector selector.
     for (const span of document.querySelectorAll('a[href] span.body-sm.truncate')) {
       const link = span.closest('a[href]');
-      let url;
-      try { url = new URL(link.href, location.href); } catch { continue; }
-      if (url.origin !== location.origin || !routeKey(url)) continue;
       for (let el = link.parentElement; el && el !== document.body; el = el.parentElement) {
         const overflow = getComputedStyle(el).overflowY;
         if ((overflow === 'auto' || overflow === 'scroll') && el.clientHeight > 0 &&
@@ -70,6 +69,9 @@
     scanKey = key;
     attemptedKey = key;
     const originalTop = scroller.scrollTop;
+    const previousScrollBehavior = scroller.style.scrollBehavior;
+    scroller.style.scrollBehavior = 'auto';
+    attempts++;
     let lastSetTop = originalTop;
     let userIntervened = false;
     // Detect direct user interaction so we do not fight their scrolling or
@@ -100,7 +102,7 @@
         const max = scroller.scrollHeight - scroller.clientHeight;
         if (scroller.scrollTop >= max - 1) {
           // Give infinite loading one extra moment at the bottom.
-          await wait(scanDelayMs);
+          await wait(2000);
           if (userIntervened || routeKey(new URL(location.href)) !== key) break;
           const loadedTitle = findSidebarTitle(key);
           if (loadedTitle) {
@@ -118,7 +120,14 @@
       scroller.removeEventListener('touchstart', onInteraction);
       scroller.removeEventListener('pointerdown', onInteraction);
       if (!userIntervened && scroller.isConnected) scroller.scrollTop = originalTop;
+      scroller.style.scrollBehavior = previousScrollBehavior;
       scanKey = null;
+      // If the sidebar was still loading, retry once after it settles.
+      // Do not retry after the user takes control of the sidebar.
+      if (!userIntervened && !cache.has(key) && routeKey(new URL(location.href)) === key && attempts < 2) {
+        attemptedKey = null;
+        retryAt = Date.now() + 10000;
+      }
       scheduleUpdate();
     }
   }
@@ -132,15 +141,16 @@
       lastWritten = '';
       originalTitle = document.title;
       attemptedKey = null;
+      retryAt = Date.now() + 2000;
+      attempts = 0;
     }
     if (!key) return;
     const found = findSidebarTitle(key);
     if (found) cache.set(key, found);
     const chatTitle = found || cache.get(key);
     if (!chatTitle) {
-      // Wait until a suitable scrollable sidebar exists. Attempt only once per
-      // route visit; navigation to another conversation enables a fresh scan.
-      if (!scanKey && attemptedKey !== key) {
+      // Wait for the sidebar to settle; retry a failed scan once.
+      if (!scanKey && attemptedKey !== key && Date.now() >= retryAt) {
         const scroller = findSidebarScroller();
         if (scroller) void scanSidebar(key, scroller);
       }
