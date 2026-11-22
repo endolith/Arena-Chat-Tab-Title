@@ -1,9 +1,16 @@
 // ==UserScript==
-// @name         Arena Chat Tab Title
-// @namespace    local.arena.tab-title
+// @name         Arena Chat - Prepend Chat Title to Tab Title
+// @namespace    https://github.com/endolith/Arena-Chat-Tab-Title
 // @version      1.0.0
-// @description  Show the current Arena conversation's sidebar title in the browser tab.
+// @description  Prepends the active conversation title to the browser tab title on arena.ai (e.g. "Chat Title - Arena")
+// @author       endolith
 // @match        https://arena.ai/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=arena.ai
+// @license      MIT
+// @homepageURL  https://github.com/endolith/Arena-Chat-Tab-Title
+// @supportURL   https://github.com/endolith/Arena-Chat-Tab-Title/issues
+// @downloadURL  https://raw.githubusercontent.com/endolith/Arena-Chat-Tab-Title/master/arena-chat-tab-title.user.js
+// @updateURL    https://raw.githubusercontent.com/endolith/Arena-Chat-Tab-Title/master/arena-chat-tab-title.user.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
