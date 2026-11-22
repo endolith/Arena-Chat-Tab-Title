@@ -43,6 +43,8 @@ If the sidebar title is not present yet (e.g. while the page is loading), the la
 
 If the sidebar has not rendered the current conversation's link at all (long history / virtualized list), the script finds the sidebar's scroll container from any already-rendered conversation title, scrolls it down in steps waiting for items to load, and stops as soon as the matching link appears — then restores the original scroll position. Smooth scrolling is temporarily disabled on the sidebar while the scan runs, so it can jump instantly between positions. The scan is bounded, runs at most twice per route (the second attempt happens 10 s later if the sidebar was still loading), and aborts immediately if you scroll, press a key in the sidebar, or navigate away, so it never fights you for control.
 
+The scan starts from wherever the list already is (it never jumps to the top first) and searches downward before trying upward. When it finds the conversation it leaves the sidebar showing that conversation, rather than restoring the position the list happened to have before the scan.
+
 ---
 
 ## Configuration

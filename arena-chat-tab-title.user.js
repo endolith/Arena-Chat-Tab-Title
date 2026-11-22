@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Arena Chat - Prepend Chat Title to Tab Title
 // @namespace    https://github.com/endolith/Arena-Chat-Tab-Title
-// @version      1.1.2
+// @version      1.2.0
 // @description  Prepends the active conversation title to the browser tab title on arena.ai (e.g. "Chat Title - Arena")
 // @author       endolith
 // @match        https://arena.ai/*
@@ -65,17 +65,39 @@
 
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+  // Keep the current conversation visible in the sidebar, without moving the
+  // list when it is already in view.
+  function revealCurrent(key, scroller) {
+    for (const link of document.querySelectorAll('a[href]')) {
+      let url;
+      try { url = new URL(link.href, location.href); } catch { continue; }
+      if (url.origin !== location.origin || routeKey(url) !== key) continue;
+      const box = scroller.getBoundingClientRect();
+      const rect = link.getBoundingClientRect();
+      const offset = rect.top - box.top;
+      if (offset < 0) scroller.scrollTop += offset - 8;
+      else if (offset + rect.height > scroller.clientHeight) {
+        scroller.scrollTop += offset + rect.height - scroller.clientHeight + 8;
+      }
+      return;
+    }
+  }
+
   async function scanSidebar(key, scroller) {
     scanKey = key;
     attemptedKey = key;
-    const originalTop = scroller.scrollTop;
+    const startTop = scroller.scrollTop;
     const previousScrollBehavior = scroller.style.scrollBehavior;
     scroller.style.scrollBehavior = 'auto';
     attempts++;
-    let lastSetTop = originalTop;
+    // Start from wherever the list already is: scrolling to the top first hides
+    // the current conversation for no reason.
+    let direction = 1;
+    let lastSetTop = startTop;
+    let found = false;
     let userIntervened = false;
     // Detect direct user interaction so we do not fight their scrolling or
-    // restore the sidebar over their chosen position.
+    // move the sidebar over their chosen position.
     const onInteraction = () => { userIntervened = true; };
     scroller.addEventListener('wheel', onInteraction, { passive: true });
     scroller.addEventListener('touchstart', onInteraction, { passive: true });
@@ -83,8 +105,6 @@
     // Keyboard scrolling of a focused sidebar must also stop the scan.
     scroller.addEventListener('keydown', onInteraction);
     try {
-      scroller.scrollTop = 0;
-      lastSetTop = scroller.scrollTop;
       // Bounded scan: at most 100 steps, avoiding an infinite loop if the
       // sidebar keeps loading new history indefinitely.
       for (let i = 0; i < 100; i++) {
@@ -98,23 +118,26 @@
         const title = findSidebarTitle(key);
         if (title) {
           cache.set(key, title);
-          update();
+          found = true;
           break;
         }
         const max = scroller.scrollHeight - scroller.clientHeight;
-        if (scroller.scrollTop >= max - 1) {
+        if (direction > 0 && scroller.scrollTop >= max - 1) {
           // Give infinite loading one extra moment at the bottom.
           await wait(2000);
           if (userIntervened || routeKey(new URL(location.href)) !== key) break;
           const loadedTitle = findSidebarTitle(key);
           if (loadedTitle) {
             cache.set(key, loadedTitle);
-            update();
+            found = true;
             break;
           }
-          if (scroller.scrollHeight - scroller.clientHeight <= max + 1) break;
+          // New history arrived, so keep going down; otherwise search upward.
+          if (scroller.scrollHeight - scroller.clientHeight <= max + 1) direction = -1;
+          continue;
         }
-        scroller.scrollTop = Math.min(scroller.scrollTop + Math.max(100, scroller.clientHeight * 0.8), scroller.scrollHeight);
+        if (direction < 0 && scroller.scrollTop <= 0) break;
+        scroller.scrollTop += direction * Math.max(100, scroller.clientHeight * 0.8);
         lastSetTop = scroller.scrollTop;
       }
     } finally {
@@ -122,7 +145,12 @@
       scroller.removeEventListener('touchstart', onInteraction);
       scroller.removeEventListener('pointerdown', onInteraction);
       scroller.removeEventListener('keydown', onInteraction);
-      if (!userIntervened && scroller.isConnected) scroller.scrollTop = originalTop;
+      if (!userIntervened && scroller.isConnected) {
+        // End on the current conversation rather than restoring the pre-scan
+        // position, which may no longer be where the site put the active item.
+        if (found) revealCurrent(key, scroller);
+        else scroller.scrollTop = startTop;
+      }
       scroller.style.scrollBehavior = previousScrollBehavior;
       scanKey = null;
       // If the sidebar was still loading, retry once after it settles.
