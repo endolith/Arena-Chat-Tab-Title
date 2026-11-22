@@ -12,6 +12,7 @@ This is a Tampermonkey/Violentmonkey script that shows the active conversation's
 - **Mutation Observers**: Uses MutationObserver to detect sidebar and title changes in real time
 - **Debounced Updates**: Prevents excessive title updates during rapid DOM changes
 - **Polling Fallback**: Includes periodic polling as a safety net to ensure titles stay synchronized
+- **Sidebar Scanning**: If the conversation's sidebar link hasn't been rendered yet (long history, virtualized list), scrolls the sidebar until it appears, then restores your scroll position
 - **Agent Mode Aware**: Uses "Agent Mode" as the site name for `/agent/` conversations
 
 ---
@@ -39,6 +40,8 @@ This is a Tampermonkey/Violentmonkey script that shows the active conversation's
 The script identifies the current conversation from the URL (`/c/...` or `/agent/...`) and looks for the sidebar link whose `href` matches that route. The title is read from the `span.body-sm.truncate` element inside that link, so it matches by URL instead of by sidebar position.
 
 If the sidebar title is not present yet (e.g. while the page is loading), the last known title for that route is used from an in-memory cache. Navigation is detected with a MutationObserver, `popstate`/`hashchange` listeners, and a polling fallback that also catches `pushState`/`replaceState` without monkey-patching the site.
+
+If the sidebar has not rendered the current conversation's link at all (long history / virtualized list), the script finds the sidebar's scroll container from any already-rendered conversation title, scrolls it down in steps waiting for items to load, and stops as soon as the matching link appears — then restores the original scroll position. The scan is bounded, runs at most once per route, and aborts immediately if you scroll or navigate, so it never fights you for control.
 
 ---
 
