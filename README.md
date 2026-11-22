@@ -41,7 +41,7 @@ The script identifies the current conversation from the URL (`/c/...` or `/agent
 
 If the sidebar title is not present yet (e.g. while the page is loading), the last known title for that route is used from an in-memory cache. Navigation is detected with a MutationObserver, `popstate`/`hashchange` listeners, and a polling fallback that also catches `pushState`/`replaceState` without monkey-patching the site.
 
-If the sidebar has not rendered the current conversation's link at all (long history / virtualized list), the script finds the sidebar's scroll container from any already-rendered conversation title, scrolls it down in steps waiting for items to load, and stops as soon as the matching link appears — then restores the original scroll position. The scan is bounded, runs at most once per route, and aborts immediately if you scroll or navigate, so it never fights you for control.
+If the sidebar has not rendered the current conversation's link at all (long history / virtualized list), the script finds the sidebar's scroll container from any already-rendered conversation title, scrolls it down in steps waiting for items to load, and stops as soon as the matching link appears — then restores the original scroll position. Smooth scrolling is temporarily disabled on the sidebar while the scan runs, so it can jump instantly between positions. The scan is bounded, runs at most twice per route (the second attempt happens 10 s later if the sidebar was still loading), and aborts immediately if you scroll, press a key in the sidebar, or navigate away, so it never fights you for control.
 
 ---
 

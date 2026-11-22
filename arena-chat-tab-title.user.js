@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Arena Chat - Prepend Chat Title to Tab Title
 // @namespace    https://github.com/endolith/Arena-Chat-Tab-Title
-// @version      1.1.1
+// @version      1.1.2
 // @description  Prepends the active conversation title to the browser tab title on arena.ai (e.g. "Chat Title - Arena")
 // @author       endolith
 // @match        https://arena.ai/*
@@ -80,6 +80,8 @@
     scroller.addEventListener('wheel', onInteraction, { passive: true });
     scroller.addEventListener('touchstart', onInteraction, { passive: true });
     scroller.addEventListener('pointerdown', onInteraction, { passive: true });
+    // Keyboard scrolling of a focused sidebar must also stop the scan.
+    scroller.addEventListener('keydown', onInteraction);
     try {
       scroller.scrollTop = 0;
       lastSetTop = scroller.scrollTop;
@@ -119,6 +121,7 @@
       scroller.removeEventListener('wheel', onInteraction);
       scroller.removeEventListener('touchstart', onInteraction);
       scroller.removeEventListener('pointerdown', onInteraction);
+      scroller.removeEventListener('keydown', onInteraction);
       if (!userIntervened && scroller.isConnected) scroller.scrollTop = originalTop;
       scroller.style.scrollBehavior = previousScrollBehavior;
       scanKey = null;
@@ -152,7 +155,9 @@
       // Wait for the sidebar to settle; retry a failed scan once.
       if (!scanKey && attemptedKey !== key && Date.now() >= retryAt) {
         const scroller = findSidebarScroller();
-        if (scroller) void scanSidebar(key, scroller);
+        if (scroller) {
+          scanSidebar(key, scroller).catch(err => console.debug('[arena tab title] sidebar scan failed', err));
+        }
       }
       return;
     }
